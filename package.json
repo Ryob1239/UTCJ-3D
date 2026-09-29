@@ -1,0 +1,15 @@
+{
+  "name": "campus-3d-interactivo",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Mapa 3D interactivo del campus, optimizado para Render.",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node server.mjs",
+    "check": "node --check server.mjs"
+  },
+  "engines": {
+    "node": ">=20 <25"
+  }
+}

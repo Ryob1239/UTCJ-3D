@@ -84,13 +84,14 @@ const compactDevice = matchMedia('(max-width: 700px), (pointer: coarse)').matche
 const camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, .1, 450);
 camera.position.set(72, 96, 105);
 const renderer = new THREE.WebGLRenderer({antialias:!compactDevice,powerPreference:'high-performance'});
-renderer.setPixelRatio(Math.min(devicePixelRatio,compactDevice?1.15:1.45));
+renderer.setPixelRatio(Math.min(devicePixelRatio,compactDevice?1.12:1.6));
 renderer.setSize(innerWidth,innerHeight);
 renderer.shadowMap.enabled = !compactDevice;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.06;
+renderer.toneMappingExposure = 1.03;
+renderer.shadowMap.autoUpdate = false;
 document.getElementById('scene').appendChild(renderer.domElement);
 
 const labels = new CSS2DRenderer();
@@ -115,6 +116,9 @@ const edgeMaterial=new THREE.LineBasicMaterial({color:0x064474,transparent:true,
 
 function shapePx(points){const sh=new THREE.Shape();points.forEach(([x,y],i)=>{const p=world(x,y);const sy=-p.z;i?sh.lineTo(p.x,sy):sh.moveTo(p.x,sy)});sh.closePath();return sh}
 function flatPoly(points,color,y=.035){const g=new THREE.ShapeGeometry(shapePx(points));g.rotateX(-Math.PI/2);const m=new THREE.Mesh(g,mat(color));m.position.y=y;m.receiveShadow=true;campus.add(m);return m}
+function flatPolyWithHoles(outer,holes,color,y=.035){const sh=shapePx(outer);for(const hp of holes){const path=new THREE.Path();hp.forEach(([x,yy],i)=>{const p=world(x,yy),sy=-p.z;i?path.lineTo(p.x,sy):path.moveTo(p.x,sy)});path.closePath();sh.holes.push(path)}const g=new THREE.ShapeGeometry(sh);g.rotateX(-Math.PI/2);const m=new THREE.Mesh(g,mat(color,.91));m.position.y=y;m.receiveShadow=true;campus.add(m);return m}
+function polyOutline(points,color=0x6f9e91,y=.145,opacity=.34){const pts=points.map(([x,yy])=>{const p=world(x,yy);return new THREE.Vector3(p.x,y,p.z)});pts.push(pts[0].clone());const g=new THREE.BufferGeometry().setFromPoints(pts);const m=new THREE.Line(g,new THREE.LineBasicMaterial({color,transparent:true,opacity}));campus.add(m);return m}
+function greenPoly(points,color,y=.115){const m=flatPoly(points,color,y);polyOutline(points,0x5f9d8b,y+.018,.30);return m}
 function extrudePoly(points,height,color,y=0){const g=new THREE.ExtrudeGeometry(shapePx(points),{depth:height,bevelEnabled:false,curveSegments:2});g.rotateX(-Math.PI/2);const m=new THREE.Mesh(g,mat(color,.74));m.position.y=y;m.castShadow=true;m.receiveShadow=true;campus.add(m);const e=new THREE.LineSegments(new THREE.EdgesGeometry(g,24),edgeMaterial);e.position.copy(m.position);campus.add(e);return m}
 function linePx(x1,y1,x2,y2,width,color,y=.07){const a=world(x1,y1),b=world(x2,y2),dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz),ang=Math.atan2(dz,dx);const g=new THREE.BoxGeometry(len,.06,width*S);const m=new THREE.Mesh(g,mat(color));m.position.set((a.x+b.x)/2,y,(a.z+b.z)/2);m.rotation.y=-ang;m.receiveShadow=true;campus.add(m);return m}
 function rectPx(cx,cy,w,h,color,y=.04,rot=0){const p=world(cx,cy),g=new THREE.BoxGeometry(w*S,.06,h*S),m=new THREE.Mesh(g,mat(color));m.position.set(p.x,y,p.z);m.rotation.y=rot;m.receiveShadow=true;campus.add(m);return m}
@@ -129,43 +133,52 @@ const campusBoundary=[[67,42],[790,44],[1115,143],[1533,708],[1494,782],[1572,87
 flatPoly(campusBoundary,C.ground,0);
 for(let i=0;i<campusBoundary.length;i++){const a=campusBoundary[i],b=campusBoundary[(i+1)%campusBoundary.length];linePx(a[0],a[1],b[0],b[1],13,C.edge,.055)}
 
-// Zona adoquinada superior (patrón cuadriculado del plano) con instancias para buen rendimiento.
-const sportZone=[[70,45],[790,47],[1105,145],[1530,710],[1490,780],[65,780]];
-function inPoly(x,y,poly){let inside=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const xi=poly[i][0],yi=poly[i][1],xj=poly[j][0],yj=poly[j][1];const hit=((yi>y)!=(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi);if(hit)inside=!inside}return inside}
-const tileGeom=new THREE.BoxGeometry(14*S,.045,14*S),tileMat=mat(0xd5d8dc);const tiles=[];for(let y=66;y<760;y+=34)for(let x=82;x<1510;x+=34)if(inPoly(x,y,sportZone))tiles.push([x,y]);const inst=new THREE.InstancedMesh(tileGeom,tileMat,tiles.length);const dummy=new THREE.Object3D();tiles.forEach(([x,y],i)=>{const p=world(x,y);dummy.position.set(p.x,.05,p.z);dummy.updateMatrix();inst.setMatrixAt(i,dummy.matrix)});inst.receiveShadow=true;campus.add(inst);
+// Zona superior despejada: se retiró únicamente el patrón de cuadritos/adoquines
+// alrededor del edificio O, gimnasio, campo de atletismo y cancha de básquet.
+// El terreno, edificios, calles, estacionamientos y áreas verdes permanecen sin cambios.
 
-// Vialidades principales y glorieta.
-linePx(65,794,1517,794,43,C.road2,.08);
-linePx(780,794,780,1198,36,C.road2,.08);
-linePx(620,794,715,794,36,C.road2,.08);
-ringPx(780,800,92,64,C.road2,.09);circlePx(780,800,55,C.green,.1);ringPx(780,800,61,57,C.edge,.115);
-[[1515,794,1520,817],[1520,817,1545,850],[1545,850,1582,882],[1582,882,1620,899],[1620,899,1665,899]].forEach(s=>linePx(...s,36,C.road2,.08));
-linePx(67,805,890,1748,18,C.road2,.065);linePx(890,1748,1270,1990,18,C.road2,.065);linePx(1390,1900,1940,1235,22,C.road2,.065);
-[[828,1422,875,1422],[875,1422,915,1436],[915,1436,934,1470],[934,1470,934,1640]].forEach(s=>linePx(...s,11,C.road2,.07));
+// Calles y estacionamientos: superficies vectoriales calcadas por color del plano de referencia.
+// Se mantienen como geometría real; la imagen original no se usa como fondo ni como textura.
+const grayWestCentral=[[81,659],[74,725],[101,746],[98,766],[81,778],[84,802],[109,827],[124,824],[179,889],[208,909],[208,920],[221,922],[218,937],[236,937],[235,954],[362,1081],[377,1078],[431,1127],[436,1146],[452,1146],[479,1180],[490,1166],[501,1167],[501,1192],[527,1200],[527,1210],[513,1215],[554,1256],[551,1271],[579,1299],[594,1292],[588,1308],[633,1353],[648,1351],[673,1376],[678,1369],[777,1374],[782,1409],[876,1402],[917,1419],[935,1458],[932,1620],[940,1620],[942,1578],[957,1569],[957,1562],[942,1561],[946,1446],[934,1418],[914,1400],[858,1389],[860,1247],[977,1250],[979,1233],[1006,1234],[1015,1106],[986,1076],[986,1064],[892,1059],[888,1085],[864,1085],[861,1136],[785,1133],[789,982],[798,981],[800,944],[789,943],[789,907],[843,897],[888,817],[1480,817],[1478,783],[891,783],[862,724],[834,701],[796,687],[796,620],[764,615],[763,687],[707,712],[682,742],[669,780],[622,780],[620,766],[537,763],[538,746],[629,748],[630,676]];
+const grayWestHole=[[356,795],[546,800],[546,811],[663,809],[711,891],[756,907],[756,1162],[666,1159],[668,1171],[692,1168],[681,1222],[660,1221],[659,1205],[643,1218],[552,1208],[551,1197],[563,1190],[552,1185],[556,1149],[503,1152],[509,1128],[532,1130],[537,1048],[565,1036],[741,1051],[743,985],[536,968],[540,844],[521,843],[518,890],[350,882],[339,971],[363,979],[369,926],[509,938],[502,1033],[361,1022],[360,1006],[338,1004],[317,988],[331,839],[355,838]];
+const roundaboutHole=[[770,730],[821,745],[844,789],[832,836],[787,863],[742,852],[721,832],[713,784],[727,755]];
+const grayEast=[[1941,1189],[1922,1186],[1920,1165],[1902,1165],[1903,1145],[1886,1126],[1877,1154],[1861,1149],[1858,1126],[1876,1114],[1865,1102],[1848,1102],[1774,1014],[1736,1009],[1724,980],[1678,977],[1671,1094],[1645,1095],[1645,1105],[1655,1108],[1654,1124],[1698,1151],[1709,1144],[1743,1150],[1747,1178],[1730,1212],[1648,1230],[1647,1242],[1635,1242],[1634,1231],[1609,1231],[1608,1242],[1596,1242],[1595,1232],[1574,1232],[1573,1219],[1564,1219],[1561,1237],[1496,1240],[1497,1251],[1538,1248],[1540,1284],[1518,1306],[1468,1301],[1468,1308],[1494,1308],[1495,1317],[1506,1318],[1506,1368],[1490,1369],[1505,1386],[1853,1382],[1885,1351],[1900,1357],[1923,1339],[1915,1323],[1929,1304]];
+const graySouth=[[1777,1405],[1481,1405],[1438,1410],[1436,1428],[1419,1428],[1417,1391],[1444,1388],[1444,1381],[1349,1386],[1349,1406],[1335,1407],[1335,1486],[1325,1508],[1164,1596],[1358,1888],[1364,1866],[1392,1853],[1363,1820],[1362,1790],[1313,1746],[1313,1736],[1350,1749],[1432,1821],[1428,1841],[1437,1846],[1450,1797],[1464,1793],[1472,1806],[1484,1798],[1477,1778],[1484,1760],[1498,1756],[1507,1770],[1521,1760],[1508,1734],[1526,1726],[1531,1702],[1557,1693],[1565,1674],[1789,1434]];
+flatPolyWithHoles(grayWestCentral,[grayWestHole,roundaboutHole],C.parking,.062);
+flatPoly(grayEast,C.parking,.062);
+flatPoly(graySouth,C.parking,.062);
+polyOutline(grayWestCentral,0x8298aa,.084,.30);
+polyOutline(grayEast,0x8298aa,.084,.30);
+polyOutline(graySouth,0x8298aa,.084,.30);
 
-// Grandes superficies de estacionamiento/asfalto.
-flatPoly([[61,662],[625,673],[625,754],[518,760],[510,834],[362,835],[352,1015],[567,1045],[576,1187],[687,1193],[688,1238],[565,1240],[61,845]],C.parking,.04);
-flatPoly([[585,1124],[889,1124],[912,1190],[909,1395],[815,1427],[598,1245]],C.parking,.04);
-flatPoly([[1543,1140],[1778,1155],[1835,1225],[1822,1390],[1538,1390],[1510,1320]],C.parking,.04);
-flatPoly([[1245,1450],[1510,1435],[1670,1490],[1700,1600],[1450,1825],[1230,1680]],C.parking,.04);
+// Glorieta y caminos peatonales conservan su geometría, ahora integrados con el asfalto trazado.
+ringPx(780,800,92,64,C.road2,.09);circlePx(780,800,55,C.green,.115);ringPx(780,800,61,57,C.edge,.13);
+[[828,1422,875,1422],[875,1422,915,1436],[915,1436,934,1470],[934,1470,934,1640]].forEach(s=>linePx(...s,11,C.road2,.078));
 
-// Líneas de cajones / topes de estacionamiento.
-[[357,692,604,708],[324,752,522,764],[204,845,306,852],[407,1074,503,1080]].forEach(s=>linePx(...s,3,0x778692,.10));
-for(let x=1560;x<=1780;x+=48){linePx(x,1245,x,1338,2,0x778692,.10);for(let y=1264;y<=1330;y+=23)linePx(x-15,y,x+15,y,2,0x778692,.10)}
-[[1213,1606,1300,1566],[1185,1684,1225,1746],[1272,1768,1362,1818],[1355,1642,1500,1714]].forEach(s=>linePx(...s,4,0x778692,.10));
-for(const [x,y] of [[930,1115],[930,1190]]){linePx(x-34,y,x+34,y,6,0x776f69,.11);linePx(x-34,y-17,x-34,y+17,6,0x776f69,.11);linePx(x+34,y-17,x+34,y+17,6,0x776f69,.11)}
+// Líneas de cajones / topes de estacionamiento, alineadas con las zonas grises del plano.
+[[357,692,604,708],[324,752,522,764],[204,845,306,852],[407,1074,503,1080]].forEach(s=>linePx(...s,3,0x778692,.115));
+for(let x=1572;x<=1805;x+=47){linePx(x,1268,x,1364,2,0x778692,.115);for(let y=1287;y<=1350;y+=21)linePx(x-15,y,x+15,y,2,0x778692,.115)}
+[[1213,1606,1300,1566],[1185,1684,1225,1746],[1272,1768,1362,1818],[1355,1642,1500,1714]].forEach(s=>linePx(...s,4,0x778692,.115));
+for(const [x,y] of [[930,1115],[930,1190]]){linePx(x-34,y,x+34,y,6,0x776f69,.12);linePx(x-34,y-17,x-34,y+17,6,0x776f69,.12);linePx(x+34,y-17,x+34,y+17,6,0x776f69,.12)}
 
-// Áreas verdes: contornos derivados del plano, no rectángulos genéricos.
+// Áreas verdes: contornos vectoriales refinados a partir de las manchas verdes del plano.
 const greens=[
-[[483,465],[470,602],[558,612],[572,474]],
-[[545,814],[551,828],[605,823],[601,812]],[[1087,831],[1088,873],[1155,869],[1158,831]],[[1526,866],[1502,836],[1478,833],[1470,850],[1352,845],[1353,858]],
-[[891,897],[805,906],[797,979],[872,984]],[[1213,931],[1200,1008],[1205,1090],[1313,1093],[1314,1072],[1235,1065],[1241,935]],
-[[1368,1020],[1369,1065],[1456,1067],[1489,1080],[1531,1077],[1530,1059],[1507,1055],[1506,1036],[1529,1033],[1534,1006],[1421,1004]],
-[[891,1051],[894,1059],[1034,1067],[1038,1054],[911,1044]],[[1574,1086],[1575,1125],[1653,1122],[1647,1104],[1594,1099],[1587,1080]],[[1041,1092],[1036,1157],[1061,1163],[1065,1094]],
-[[1182,1201],[1184,1237],[1231,1237],[1230,1211]],[[1563,1220],[1459,1219],[1454,1251],[1443,1249],[1439,1218],[1341,1223],[1341,1241],[1422,1242],[1429,1249],[1337,1253],[1335,1406],[1409,1410],[1418,1406],[1410,1393],[1403,1406],[1401,1391],[1413,1390],[1414,1381],[1463,1375],[1373,1374],[1368,1335],[1383,1316],[1427,1310],[1433,1300],[1518,1305],[1539,1282],[1538,1249],[1501,1252],[1495,1243],[1561,1237]],
-[[1265,1224],[1269,1241],[1323,1238],[1318,1221]],[[1323,1254],[1181,1248],[1174,1260],[1019,1264],[991,1282],[1106,1283],[1136,1315],[1137,1286],[1152,1279],[1168,1297],[1168,1316],[1269,1322],[1322,1278]],
-[[758,1440],[750,1454],[879,1579],[911,1526],[912,1473],[901,1448],[878,1433],[785,1428]],[[1126,1431],[1129,1594],[1166,1592],[1281,1539],[1311,1513],[1297,1435],[1280,1437],[1278,1457],[1199,1453],[1199,1431]]
-];greens.forEach((g,i)=>flatPoly(g,i%3===0?C.green2:C.green,.105));
+[[1652,1149],[1622,1148],[1622,1156],[1642,1162],[1639,1198],[1590,1196],[1588,1205],[1573,1207],[1572,1219],[1558,1218],[1566,1188],[1542,1187],[1541,1207],[1553,1208],[1552,1219],[1457,1218],[1456,1243],[1445,1242],[1443,1218],[1338,1223],[1335,1419],[1416,1427],[1418,1381],[1466,1378],[1464,1369],[1412,1369],[1407,1345],[1397,1341],[1390,1371],[1372,1372],[1369,1335],[1384,1315],[1426,1310],[1431,1300],[1518,1309],[1541,1284],[1539,1237],[1678,1227],[1675,1185],[1666,1202],[1647,1200]],
+[[1124,1591],[1157,1596],[1292,1532],[1312,1509],[1302,1436],[1281,1435],[1280,1457],[1200,1454],[1199,1430],[1127,1428],[1132,1531]],
+[[1323,1222],[1266,1221],[1264,1249],[1232,1249],[1232,1212],[1182,1201],[1175,1259],[1022,1264],[991,1275],[991,1285],[1106,1283],[1131,1314],[1140,1314],[1139,1285],[1156,1282],[1168,1317],[1273,1322],[1323,1277]],
+[[751,1447],[748,1454],[879,1579],[907,1542],[913,1511],[911,1469],[896,1444],[862,1429],[789,1428]],
+[[1350,993],[1350,1011],[1368,1012],[1367,1065],[1478,1070],[1484,1080],[1531,1080],[1531,1058],[1506,1057],[1506,1034],[1531,1033],[1533,1005],[1418,1005],[1378,1014],[1377,987]],
+[[1212,929],[1200,1002],[1205,1092],[1314,1094],[1313,1071],[1234,1062],[1243,938]],
+[[805,904],[798,981],[874,985],[892,898]],
+[[1527,867],[1503,835],[1475,834],[1473,850],[1352,843],[1363,887],[1370,887],[1372,860]],
+[[1087,831],[1087,873],[1154,873],[1156,830]],
+[[1575,1082],[1572,1125],[1655,1123],[1657,1106],[1593,1099],[1591,1082]],
+[[892,1044],[895,1059],[1036,1066],[1036,1053]],
+[[1041,1092],[1037,1161],[1064,1162],[1065,1093]],
+[[623,1163],[600,1173],[599,1159],[574,1162],[569,1180],[554,1170],[554,1202],[588,1202],[594,1189],[613,1188]],
+[[605,812],[577,800],[576,811],[546,810],[545,826],[603,830]]
+];
+greens.forEach((g,i)=>greenPoly(g,i%3===0?C.green2:C.green,.122));
 
 // Campo de atletismo / cancha de fútbol.
 flatPoly(roundedCapsule(291,333,265,555,126),C.track,.115);flatPoly(roundedCapsule(291,333,198,478,93),C.sport,.135);
@@ -177,8 +190,11 @@ addLabel('Campo de atletismo / fútbol',292,72,1.2);
 // Canchas y gimnasio de la parte superior.
 flatPoly([[1253,557],[1252,705],[1275,707],[1276,695],[1304,694],[1307,707],[1328,704],[1324,556]],C.sport,.13);
 linePx(1291,557,1291,705,2,C.white,.17);linePx(1255,632,1326,632,2,C.white,.17);
-flatPoly([[1136,552],[1140,658],[1161,658],[1163,671],[1196,670],[1197,663],[1207,658],[1202,550],[1191,550],[1189,544],[1173,544]],C.blue,.13);
-addLabel('Cancha de básquet',1172,520,1.4);
+// La cancha de básquet se representa como un edificio de una planta,
+// conservando exactamente su huella y posición del modelo anterior.
+const basketballPoly=[[1136,552],[1140,658],[1161,658],[1163,671],[1196,670],[1197,663],[1207,658],[1202,550],[1191,550],[1189,544],[1173,544]];
+extrudePoly(basketballPoly,2.85,C.blue);
+addLabel('Cancha de básquet',1172,520,4.05);
 const gym=extrudePoly([[1105,367],[990,371],[993,477],[1108,476]],5.7,C.blue);addLabel('Gimnasio',1048,342,6.6);
 
 // Edificios A–Q: huellas trazadas directamente de los bloques azules del plano.
@@ -211,7 +227,15 @@ circlePx(1720,1171,10,C.ground,buildings.M.floors*2.85+.035);
 
 // Edificio en construcción (huella rayada) y estancia infantil.
 const construction=[[543,1148],[541,1207],[688,1223],[693,1162]];flatPoly(construction,C.construction,.14);for(let x=535;x<705;x+=17)linePx(x,1215,x+65,1148,4,C.white,.18);addLabel('En construcción',618,1235,.8);
-flatPoly([[1360,1347],[1507,1347],[1507,1425],[1360,1425]],0xd9e0e6,.13);rectPx(1434,1380,118,22,C.child,.18);rectPx(1434,1407,118,22,C.child,.18);rectPx(1366,1389,18,58,C.child,.18);rectPx(1502,1389,18,58,C.child,.18);addLabel('Estancia Infantil',1435,1445,.8);
+flatPoly([[1360,1347],[1507,1347],[1507,1425],[1360,1425]],0xd9e0e6,.13);
+// Estancia Infantil: los cuatro volúmenes conservan la misma huella del plano,
+// pero ahora tienen altura de una sola planta (2.85 m).
+const childHeight=2.85;
+extrudePoly([[1375,1369],[1493,1369],[1493,1391],[1375,1391]],childHeight,C.child);
+extrudePoly([[1375,1396],[1493,1396],[1493,1418],[1375,1418]],childHeight,C.child);
+extrudePoly([[1357,1360],[1375,1360],[1375,1418],[1357,1418]],childHeight,C.child);
+extrudePoly([[1493,1360],[1511,1360],[1511,1418],[1493,1418]],childHeight,C.child);
+addLabel('Estancia Infantil',1435,1445,4.05);
 
 // Accesos / nodos naranjas del plano.
 [[74,752],[1573,883],[1751,987],[1385,1884],[1552,1719],[936,1645]].forEach(([x,y])=>{circlePx(x,y,27,0x2e5d7c,.20);circlePx(x,y,13,C.accent,.24)});
@@ -243,6 +267,7 @@ function requestRender(){
   requestAnimationFrame(renderScene);
 }
 orbit.addEventListener('change',requestRender);
+if(renderer.shadowMap.enabled)renderer.shadowMap.needsUpdate=true;
 requestRender();
 
 let resizeFrame=0;
@@ -251,7 +276,7 @@ addEventListener('resize',()=>{
   resizeFrame=requestAnimationFrame(()=>{
     camera.aspect=innerWidth/innerHeight;
     camera.updateProjectionMatrix();
-    renderer.setPixelRatio(Math.min(devicePixelRatio,compactDevice?1.15:1.45));
+    renderer.setPixelRatio(Math.min(devicePixelRatio,compactDevice?1.12:1.6));
     renderer.setSize(innerWidth,innerHeight);
     labels.setSize(innerWidth,innerHeight);
     requestRender();

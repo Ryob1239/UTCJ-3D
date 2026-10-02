@@ -43,6 +43,16 @@ En Windows PowerShell:
 $env:PORT=3000; npm start
 ```
 
+
+## Ajustes visuales de esta versión
+
+- Se retiró el patrón de cuadritos/adoquines de la zona superior alrededor del edificio O, gimnasio, campo de atletismo y cancha de básquet, sin modificar el resto del modelado.
+- Se conservaron edificios, interacción, distribución general y configuración de Render.
+- Las calles y superficies de estacionamiento se retrazaron como geometría vectorial siguiendo las zonas grises del plano de referencia.
+- Los cajones de estacionamiento se realinearon con esas superficies.
+- Las áreas verdes se retrazaron con contornos más precisos y un borde sutil para mejorar la lectura en 3D y en vista de planta.
+- El render continúa siendo bajo demanda; en escritorio aumenta ligeramente la resolución y las sombras estáticas se calculan una sola vez para evitar trabajo innecesario de GPU.
+
 ## Subir a Render con GitHub
 
 1. Descomprime esta carpeta y súbela a un repositorio de GitHub. `render.yaml` debe permanecer en la raíz.

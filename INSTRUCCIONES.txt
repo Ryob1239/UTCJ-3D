@@ -1,0 +1,16 @@
+CAMBIO DE ADMINISTRACIÓN — CAMPUS 3D
+
+Este parche NO modifica index.html ni el modelado 3D.
+
+1. Copia admin.html y 404.html a la raíz de tu proyecto.
+2. Reemplaza tu server.mjs por el server.mjs incluido en este parche.
+3. NO cambies index.html, render.yaml, package.json ni tus assets.
+4. Haz commit y push a GitHub. Render desplegará el cambio.
+5. Abre:
+      https://TU-SITIO.onrender.com/admin
+6. Usa el interruptor:
+   - APAGADO: página normal del Campus 3D.
+   - ENCENDIDO: la raíz / muestra "404 — Página no encontrada" con estado HTTP 404.
+
+IMPORTANTE:
+El modo se guarda en memoria del servidor. Si Render reinicia la instancia o haces un nuevo deploy, vuelve a "normal" automáticamente.

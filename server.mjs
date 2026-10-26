@@ -130,13 +130,13 @@ const server = http.createServer(async (req,res) => {
   }
 
   // Solo la página principal se reemplaza por el error administrable.
-  if((pathname === '/' || pathname === '/404.html') && siteMode === '404'){
+  if((pathname === '/' || pathname === '/404.html') && siteMode === '404'){ //Cambiar a 404.html si quieres que la página principal sea la de error.
     if(sendFile(req,res,join(ROOT,'404.html'),404)) return;
     return sendJson(req,res,404,{error:'Página no encontrada'});
   }
 
   let target;
-  if(pathname === '/') target = join(ROOT,'404.html');
+  if(pathname === '/') target = join(ROOT,'404.html'); //Cambiar a 404.html si quieres que la página principal sea la de error.
   else target = safePath(pathname);
 
   if(target && sendFile(req,res,target,200)) return;
